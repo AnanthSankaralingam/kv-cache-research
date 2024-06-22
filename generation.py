@@ -201,15 +201,15 @@ class Llama:
             #dont print prompt tokens
             if not any(token_to_print in prompt_token for prompt_token in prompt_tokens):
               print(attention_dict[cur_pos].shape)
-              print(attention_dict[cur_pos][:3,:3,:3,:3])
+              print(attention_dict[cur_pos][:, 0,:,:])
               print("Current token:", token_to_print)
-              sns.set()
-              plt.figure(figsize=(10, 10))
-              sns.heatmap(attention_dict[cur_pos].squeeze.permute(1, 0), annot=True, cmap="YlGnBu")
-              plt.xlabel("Tokens")
-              plt.ylabel("Attention Scores")
-              plt.title("Attention Scores Heatmap")
-              plt.show()
+              # sns.set()
+              # plt.figure(figsize=(10, 10))
+              # sns.heatmap(attention_dict[cur_pos].squeeze.permute(1, 0), annot=True, cmap="YlGnBu")
+              # plt.xlabel("Tokens")
+              # plt.ylabel("Attention Scores")
+              # plt.title("Attention Scores Heatmap")
+              # plt.show()
             
             tokens[:, cur_pos] = next_token
             if logprobs:
