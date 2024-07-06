@@ -1,6 +1,6 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 # This software may be used and distributed in accordance with the terms of the Llama 3 Community License Agreement.
-# dtore and compute attention by hand
+
 from typing import List, Optional
 
 import fire
@@ -39,29 +39,56 @@ def main(
         temperature=temperature,
         top_p=top_p,
     )
-    # count = 17
+
+    #print out relevant info about each key/query
+    # count = 1
     # for key, value in xq.items():
     #   if count == 0:
     #     break
     #   count -=1
-    #   print(key, value)
+    #   print(key + ", query shape: ", value)
 
+    #store Q and K tensors for all tokens. each index is a tensor, then combine for big matrixes
     Q_rows = []
     K_rows = []
 
-    count = 17 #prompt length
     #todo: check if the first token weird here too. manually append it
     #todo: pad with 0s and create Q K. check if need to transpose K since alr transposed in model
     #todo: compute QK^T. print. visualize w heatmap
+
+    #todo: make sure Q values are unique for each token
+
+    count = 17 #prompt length
+    #append query values to array, skip first for mismatch size
     for key, value in xq.items():
         if count == 0:
           break
         count -= 1
+        if count == 16:
+          continue
         Q_rows.append(value)
-        # K_rows.append(xk[token])
+
+    count = 17 #prompt length
+    #append key values to array, skip first for mismatch size
+    for key, value in xk.items():
+        if count == 0:
+          break
+        count -= 1
+        if count == 16:
+          continue
+        K_rows.append(value)
 
     Q = torch.stack(Q_rows)
-    # K = torch.stack(K_rows)
+    K = torch.stack(K_rows)
+
+    print("K shape:", K.shape)
+    print("Q shape:", Q.shape)
+    # QK^T
+    K_T = K.transpose(-1, -2)  # Transpose the last two dimensions
+    att = torch.matmul(Q, K_T)
+
+    print("Attention shape:", att.shape)
+    print(att)
 
     # for dialog, result in zip(dialogs, results):
     #     # for msg in dialog:
