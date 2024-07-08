@@ -1,5 +1,4 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# This software may be used and distributed in accordance with the terms of the Llama 3 Community License Agreement.
+# script to generate k and q matrixes to compute attention based on custom prompt
 
 from typing import List, Optional
 
@@ -11,12 +10,15 @@ from llama.model import ModelArgs
 import torch
 import numpy as np 
 
+import matplotlib.pyplot as plt
+import seaborn as sns
+
 def main(
-    ckpt_dir: str,
-    tokenizer_path: str,
+    ckpt_dir: str = "/content/llama3/Meta-Llama-3-8B",
+    tokenizer_path: str = "/content/llama3/Meta-Llama-3-8B/tokenizer.model",
     temperature: float = 0.6,
     top_p: float = 0.9,
-    max_seq_len: int = 512,
+    max_seq_len: int = 128,
     max_batch_size: int = 4,
     max_gen_len: Optional[int] = None,
 ):
@@ -52,11 +54,7 @@ def main(
     Q_rows = []
     K_rows = []
 
-    #todo: check if the first token weird here too. manually append it
-    #todo: pad with 0s and create Q K. check if need to transpose K since alr transposed in model
-    #todo: compute QK^T. print. visualize w heatmap
-
-    #todo: make sure Q values are unique for each token
+    #TODO: check if the first token weird here too. manually append it
 
     count = 17 #prompt length
     #append query values to array, skip first for mismatch size
@@ -88,7 +86,17 @@ def main(
     att = torch.matmul(Q, K_T)
 
     print("Attention shape:", att.shape)
-    print(att)
+    # print(att)
+
+    # TODO: visualization
+    att_2d = att.mean(0).squeeze(0).squeeze(-1).cpu().float().numpy()
+
+    # Visualize attention with heatmap - FIX
+    sns.set()
+    plt.figure(figsize=(8, 8))
+    sns.heatmap(att_2d, cmap="YlGnBu", square=True)
+    plt.show(block=True)
+
 
     # for dialog, result in zip(dialogs, results):
     #     # for msg in dialog:
