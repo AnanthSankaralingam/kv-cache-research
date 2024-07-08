@@ -1,5 +1,4 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# This software may be used and distributed in accordance with the terms of the Llama 3 Community License Agreement.
+# extract k and q matrixes, attention scores by token
 
 import json
 import os
@@ -129,7 +128,7 @@ class Llama:
         top_p: float = 0.9,
         logprobs: bool = False,
         echo: bool = False,
-    ) -> Tuple[List[List[int]], Optional[List[List[float]]]]:
+    ) -> Tuple[List[List[int]], Optional[List[List[float]]], dict, dict]:
         """
         Generate text sequences based on provided prompts using the language generation model.
 
@@ -179,11 +178,12 @@ class Llama:
             )
 
         stop_tokens = torch.tensor(list(self.tokenizer.stop_tokens))
-        attention_dict = dict()
+        key_dict = dict()
+        query_dict = dict() 
         for cur_pos in range(min_prompt_len, total_len):
             logits = self.model.forward(tokens[:, prev_pos:cur_pos], prev_pos)
             #get attention from transformer (t-block class)  
-            attention_dict[cur_pos] = self.model.layers[-1].attention_weights.float().cpu().numpy()
+            
 
             if temperature > 0:
                 probs = torch.softmax(logits[:, -1] / temperature, dim=-1)
@@ -198,11 +198,13 @@ class Llama:
             )
             
             token_to_print = self.tokenizer.decode(next_token.tolist()) #use tokenizer to convert embedding to english
+            key_dict[token_to_print] = self.model.layers[-1].xk
+            query_dict[token_to_print] = self.model.layers[-1].xq
             #dont print prompt tokens
-            if not any(token_to_print in prompt_token for prompt_token in prompt_tokens):
-              print(attention_dict[cur_pos].shape)
-              print(attention_dict[cur_pos][:, 0,:,:])
-              print("Current token:", token_to_print)
+            # if not any(token_to_print in prompt_token for prompt_token in prompt_tokens):
+            #   print(attention_dict[cur_pos].shape)
+            #   print(attention_dict[cur_pos][:, 0,:,:])
+            #   print("Current token:", token_to_print)
               # sns.set()
               # plt.figure(figsize=(10, 10))
               # sns.heatmap(attention_dict[cur_pos].squeeze.permute(1, 0), annot=True, cmap="YlGnBu")
@@ -246,7 +248,7 @@ class Llama:
                     pass
             out_tokens.append(toks)
             out_logprobs.append(probs)
-        return (out_tokens, out_logprobs if logprobs else None)
+        return (out_tokens, out_logprobs if logprobs else None, query_dict, key_dict)
 
     def text_completion(
         self,
@@ -280,7 +282,7 @@ class Llama:
         if max_gen_len is None:
             max_gen_len = self.model.params.max_seq_len - 1
         prompt_tokens = [self.tokenizer.encode(x, bos=True, eos=False) for x in prompts]
-        generation_tokens, generation_logprobs = self.generate(
+        generation_tokens, generation_logprobs, xk, xq = self.generate(
             prompt_tokens=prompt_tokens,
             max_gen_len=max_gen_len,
             temperature=temperature,
@@ -306,7 +308,7 @@ class Llama:
         top_p: float = 0.9,
         max_gen_len: Optional[int] = None,
         logprobs: bool = False,
-    ) -> List[ChatPrediction]:
+    ) -> Tuple[List[ChatPrediction], dict, dict]:
         """
         Generate assistant responses for a list of conversational dialogs using the language generation model.
 
@@ -332,7 +334,7 @@ class Llama:
         prompt_tokens = [
             self.formatter.encode_dialog_prompt(dialog) for dialog in dialogs
         ]
-        generation_tokens, generation_logprobs = self.generate(
+        generation_tokens, generation_logprobs, xk, xq = self.generate(
             prompt_tokens=prompt_tokens,
             max_gen_len=max_gen_len,
             temperature=temperature,
@@ -350,7 +352,7 @@ class Llama:
                     "logprobs": logprobs_i,
                 }
                 for t, logprobs_i in zip(generation_tokens, generation_logprobs)
-            ]
+            ], xk, xq
         return [
             {
                 "generation": {
@@ -359,7 +361,7 @@ class Llama:
                 },
             }
             for t in generation_tokens
-        ]
+        ], xk, xq
 
 
 def sample_top_p(probs, p):
